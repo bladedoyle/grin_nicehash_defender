@@ -1,6 +1,6 @@
 # Grin Nicehash Defender
 
-Monitors grin network and price, and nicehash C32 rate and speed.
+Monitors grin network and price, and nicehash C32 rate and price.
 Reports an attack if detected.
 
 How to use it:

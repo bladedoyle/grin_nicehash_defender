@@ -274,6 +274,8 @@ class GrinNiceHashDefender():
 
         while True:
             if VERBOSE:
+                print("Time:")
+                print("  Current: {}".format(datetime.now()))
                 print("Grin Price:")
                 print("  Current: {}".format(self.grin_price.getCurrentPrice()))
                 print("  Avg: {}".format(self.grin_price.getAveragePrice()))

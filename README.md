@@ -1,10 +1,10 @@
 # Grin Nicehash Defender
 
 What it does:
-  * Monitors grin network and price, and nicehash C32 rate and price
-  * If an attack is detected 2 NiceHash C32 orders will be created
+  * Monitors grin network for 51% attack
+  * If an attack is detected NiceHash C32 orders will be created in both EU and USA
   * While the attack is active, the order limit prices will be increased to keep miners
-  * After the attack ends, the 2 orders will be deleted
+  * After the attack ends, the two orders will be deleted
 
 How to use it:
   * Create a NiceHash account

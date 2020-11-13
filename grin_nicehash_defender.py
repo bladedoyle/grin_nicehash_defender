@@ -183,7 +183,7 @@ class NiceHashSpeedWatcher():
 
 class GrinNiceHashDefender():
     def __init__(self):
-        self.nicehash_auth = {"API_ID": None, "API_KEY": None}
+        self.nicehash_auth = {"API_ID": NiceHash().API_ID, "API_KEY": NiceHash().API_KEY and "*************"}
         self.config = {
                 "MAX_SPEED": MAX_SPEED,
                 "MAX_PRICE": MAX_PRICE,

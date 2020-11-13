@@ -19,6 +19,9 @@ import sys
 import uuid
 import time
 import json
+import yaml
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
 import requests
 import traceback
 from datetime import datetime, timedelta
@@ -27,278 +30,210 @@ from threading import Thread
 from nicehash_api import NiceHash
 
 
-## Begin User Config
-
-# Basic Config
-VERBOSE = True    # Print lots of data
-MAX_SPEED = 1.0   # kG/s
-MAX_PRICE = 0.270 # BTC/kG/day
-
-MIN_HISTORY = 1  # (minutes) Minimum amount of data to collect before taking action
-
-# Advanced Config
-LOOP_INTERVAL = 10      # Sleep this long (seconds) between control loop runs
-MAX_INCREASE = 0.0001   # Maximum amount to increase at once
-INCREASE_INTERVAL = timedelta(seconds = 0)  # Min time between price increases
-TARGET_MIN_ADD = 0.0005 # Amount to set order price over the absolute minimum
-## End User Config
-
-# https://docs.nicehash.com/main/index.html
-UPDATE_INTERVAL = timedelta(minutes = 10)
-MAX_DECREASE = 0.0001
-
-
-##
-# Watchers for external data
-
-class GrinHashSpeedWatcher():
-    def __init__(self):
-        self.interval = 30
-        self.max_size = 9000/self.interval
-        self.speeds = []
-
-    def getSize(self):
-        return len(self.speeds)
-    
-    def getCurrentSpeed(self):
-        return self.speeds[-1]["speed"]
-
-    def getAverageSpeed(self):
-        total = sum([sp["speed"] for sp in self.speeds])
-        return total / len(self.speeds)
-
-    def run(self):
-        while True:
-            # Get grin GPS (from GrinMint Pool API)
-            url = "https://api.grinmint.com/v2/networkStats"
-            r = requests.get(url, timeout=20)
-            speedpoint = { 
-                    "speed": r.json()["hashrates"]["32"],
-                    "ts": datetime.now(),
-                }
-            self.speeds.append(speedpoint)
-            if len(self.speeds) > self.max_size:
-                self.speeds.pop(0)
-            # sleep interval
-            time.sleep(self.interval)
-
-class GrinPriceWatcher():
-    def __init__(self):
-        self.interval = 30
-        self.max_size = 9000/self.interval
-        self.prices = []
-    
-    def getSize(self):
-        return len(self.prices)
-    
-    def getCurrentPrice(self):
-        return self.prices[-1]["price"]
-
-    def getAveragePrice(self):
-        total = sum([pp["price"] for pp in self.prices])
-        return total / len(self.prices)
-
-    def run(self):
-        while True:
-            # Get grin price
-            url = "https://api.coingecko.com/api/v3/simple/price?ids=grin&vs_currencies=btc"
-            r = requests.get(url, timeout=20)
-            pricepoint = { 
-                    "price": r.json()["grin"]["btc"],
-                    "ts": datetime.now(),
-                }
-            self.prices.append(pricepoint)
-            if len(self.prices) > self.max_size:
-                self.prices.pop(0)
-            # sleep interval
-            time.sleep(self.interval)
-
-class NiceHashPriceWatcher():
-    def __init__(self):
-        self.interval = 30
-        self.max_size = 9000/self.interval
-        self.prices = []
-
-    def getSize(self):
-        return len(self.prices)
-    
-    def getCurrentPrice(self):
-        return self.prices[-1]["price"]
-
-    def getAveragePrice(self):
-        total = sum([pp["price"] for pp in self.prices])
-        return total / len(self.prices)
-
-    def run(self):
-        nh_api = NiceHash()
-        nh_api.setAuth()
-        while True:
-            # Get NH C32 price
-            price = nh_api.getCurrentPrice()
-            pricepoint = {
-                    "price": price,
-                    "ts": datetime.now(),
-                }
-            self.prices.append(pricepoint)
-            if len(self.prices) > self.max_size:
-                self.prices.pop(0)
-            # sleep interval
-            time.sleep(self.interval)
-
-class NiceHashSpeedWatcher():
-    def __init__(self):
-        self.interval = 30
-        self.max_size = 9000/self.interval
-        self.speeds = []
-
-    def getSize(self):
-        return len(self.speeds)
-
-    def getCurrentSpeed(self):
-        return self.speeds[-1]["speed"]
-
-    def getAverageSpeed(self):
-        total = sum([sp["speed"] for sp in self.speeds])
-        return total / len(self.speeds)
-
-    def run(self):
-        nh_api = NiceHash()
-        nh_api.setAuth()
-        while True:
-            # Get NH C32 speed
-            speed = nh_api.getCurrentSpeed()
-            speedpoint = {
-                    "speed": speed,
-                    "ts": datetime.now(),
-                }
-            self.speeds.append(speedpoint)
-            if len(self.speeds) > self.max_size:
-                self.speeds.pop(0)
-            # sleep interval
-            time.sleep(self.interval)
-
-
-
-
-
 class GrinNiceHashDefender():
     def __init__(self):
-        self.nicehash_auth = {"API_ID": NiceHash().API_ID, "API_KEY": NiceHash().API_KEY and "*************"}
-        self.config = {
-                "MAX_SPEED": MAX_SPEED,
-                "MAX_PRICE": MAX_PRICE,
-                "LOOP_INTERVAL": LOOP_INTERVAL,
-                "MAX_INCREASE": MAX_INCREASE,
-                "INCREASE_INTERVAL": INCREASE_INTERVAL,
-                "TARGET_MIN_ADD": TARGET_MIN_ADD,
-                "UPDATE_INTERVAL": UPDATE_INTERVAL,
-                "MAX_DECREASE": MAX_DECREASE,
-            }
-        self.orders = {}
-        self.attacks_detected = 0
-        self.grin_price = None
-        self.grin_speed = None
-        self.nh_price = None
-        self.nh_speed = None
+        self.nh_api = NiceHash()
+        self.config = None
+        self.under_attack = False
+        self.attack_start = None
+        self.nh_pool_id = None
+        self.nh_orders = { "EU": None, "USA": None }
+        self.nh_order_add_duration = None
 
-
-    def getProfitabilityPrice(self):
-        grin_price = self.grin_price.getCurrentPrice()
-        grin_speed = self.grin_speed.getCurrentSpeed() / 1000.0
-        grin_per_day = 60*60*24
-        price = (grin_per_day * grin_price) / grin_speed
-        return price
-        
+    def getConfig(self):
+        if not os.path.exists('config.yml'):
+            print("Failed to find configuration file")
+            sys.exit(1)
+        with open('config.yml', 'r') as c:
+            cfg = c.read()
+            try:
+                self.config = yaml.safe_load(cfg)[0]
+            except Exception as e:
+                print("Failed to load configuration.  Check syntax.\n{}".format(e))
+                sys.exit(1)
+        self.nh_order_add_duration = timedelta(minutes=int(self.config["ADD_ORDER_DURATION"]))
+        try:
+            if self.config["NICEHASH_API_ID"] == "":
+                self.config["NICEHASH_API_ID"] = os.environ["NICEHASH_API_ID"]
+            if self.config["NICEHASH_API_KEY"] == "":
+                self.config["NICEHASH_API_KEY"] = os.environ["NICEHASH_API_KEY"]
+            self.nh_api.setAuth(self.config["NICEHASH_API_ID"], self.config["NICEHASH_API_KEY"])
+        except Exception as e:
+            print("Failed to find NICEHASH_API_ID and NICEHASH_API_KEY: {}".format(e))
+            sys.exit(1)
+        try:
+            self.nh_pool_id = self.nh_api.getPoolId(self.config["POOL_NAME"])
+        except Exception as e:
+            print("Failed to connect to your nicehash account: {}".format(e))
+            sys.exit(1)
+        if self.nh_pool_id is None:
+            print("Failed to find pool {} in your NiceHash account".format(self.config["POOL_NAME"]))
+            sys.exit(1)
+        if self.config["CHECK_TYPE"] == "grin51":
+            print("Loading Grin51 detection module")
+            from grin51 import Grin51
+            self.grin51 = Grin51()
+            self.grin51.run()
+            print("Grin51 detection module is running")
 
     def checkForAttack(self):
-        # Possible to attack if:
-        # 1. NiceHash C32 price is at least 30% higher than recent average
-        # 2. NiceHash C32 "Total Available Speed" is at least 30% higher than recent average
-        # 3. NiceHash C32 price is at least 30% higher than is profitable
-        #    based on current grin price and current grin network c32 graph rate
-        nh_price = self.nh_price.getCurrentPrice()
-        nh_avg_price = self.nh_price.getAveragePrice()
-        nh_price_dev = nh_price / nh_avg_price
-        
-        nh_speed = self.nh_speed.getCurrentSpeed()
-        nh_avg_speed = self.nh_speed.getAverageSpeed()
-        nh_speed_dev = nh_speed / nh_avg_speed
-
-        grin_profitability_price = self.getProfitabilityPrice()
-        grin_profitability = nh_price / grin_profitability_price
-
-        print("checkForAttack:")
-        print("  Num Attack Detections: {}".format(self.attacks_detected))
-        print("  nh_price_dev: {}".format(nh_price_dev))
-        print("  nh_speed_dev: {}".format(nh_speed_dev))
-        print("  grin_profitability: {}".format(grin_profitability))
-        if nh_price_dev > 1.3 and nh_speed_dev > 1.3 and grin_profitability > 1.3:
-            print("XXXXXXXXXXXXXX: Possible Attack")
-            self.attacks_detected = self.attacks_detected + 1
+        attack = False
+        if self.config["CHECK_TYPE"] == "file":
+            if os.path.exists('attack'):
+                attack = True
+        elif self.config["CHECK_TYPE"] == "grin51":
+            attack = self.grin51.under_attack
+        elif self.config["CHECK_TYPE"] == "service":
+            attack = result_of_calling_a_service_api()
         else:
-            print("  No attack detected at this time")
+            print("Unknown attack detection method: {}".format(self.config["CHECK_TYPE"]))
+            sys.exit(1)
+        # Set some values for attack state
+        if attack:
+            self.under_attack = True
+            self.attack_start = datetime.now()
+        else:
+            self.under_attack = False
+            # Dont reset start time since we still use that for a bit
 
+    def manageOrders(self):
+        if self.attack_start is not None:
+            try:
+                eu_price = self.nh_api.getCurrentPrice("EU", "GRINCUCKATOO32") + self.config["ORDER_PRICE_ADD"]
+                us_price = self.nh_api.getCurrentPrice("USA", "GRINCUCKATOO32") + self.config["ORDER_PRICE_ADD"]
+            except Exception as e:
+                print("Error getting NH price data: {}".format(e))
+                return
+        if self.under_attack:
+            # Create orders if needed
+            if self.nh_orders["EU"] is None:
+                # Create the order
+                try:
+                    new_order = self.nh_api.createOrder(
+                                    algo = "GRINCUCKATOO32",
+                                    market = "EU",
+                                    pool_id = self.nh_pool_id,
+                                    price = eu_price,
+                                    speed = self.config["MAX_SPEED"],
+                                    amount = self.config["ORDER_AMOUNT"],
+                                )
+                    self.nh_orders["EU"] = new_order["id"] 
+                    print("Created EU Order: {}".format(self.nh_orders["EU"]))
+# XXX DEBUGGING XXX
+#                    self.nh_orders["EU"] = "0e69ab28-b9c0-40eb-bda7-3a0a975440c7"
+# XXX DEBUGGING XXX
+                except Exception as e:
+                    print("Error creating EU order: {}".format(e))
+            if self.nh_orders["USA"] is None:
+                try:
+                    new_order = self.nh_api.createOrder(
+                                    algo = "GRINCUCKATOO32",
+                                    market = "USA",
+                                    pool_id = self.nh_pool_id,
+                                    price = us_price,
+                                    speed = self.config["MAX_SPEED"],
+                                    amount = self.config["ORDER_AMOUNT"],
+                                )
+                    self.nh_orders["USA"] = new_order["id"] 
+                    print("Created USA Order: {}".format(self.nh_orders["USA"]))
+# XXX DEBUGGING XXX
+#                    self.nh_orders["USA"] = "8ef742e2-6a8c-4c19-b46c-d96b2050a43f"
+# XXX DEBUGGING XXX
+                except Exception as e:
+                    print("Error creating USA order: {}".format(e))
+
+
+
+
+        # Update order price limits if needed
+        if self.nh_orders["EU"] is not None:
+            # Update the EU order
+            try:
+                order = self.nh_api.getOrder(self.nh_orders["EU"])
+                new_eu_price = max(float(order["price"]), float(eu_price))
+                print("order price: {}, eu_price: {}, new_eu_price: {}".format(order["price"], eu_price, new_eu_price))
+                order = self.nh_api.updateOrder(
+                                algo = "GRINCUCKATOO32",
+                                order_id = self.nh_orders["EU"],
+                                speed = self.config["MAX_SPEED"],
+                                price = new_eu_price,
+                            )
+                print("EU order status:")
+                if self.config["VERBOSE"]:
+                    pp.pprint(order)
+                else:
+                    print("Speed: {}, Price: {}, BTC_Remaining: {}".format(order["acceptedCurrentSpeed"], order["price"], order["availableAmount"]))
+            except Exception as e:
+                print("Error updating EU order: {}".format(e))
+        if self.nh_orders["USA"] is not None:
+            # Update the order
+            try:
+                order = self.nh_api.getOrder(self.nh_orders["USA"])
+                new_us_price = max(float(order["price"]), float(us_price))
+                print("order price: {}, us_price: {}, new_us_price: {}".format(order["price"], us_price, new_us_price))
+                order = self.nh_api.updateOrder(
+                                algo = "GRINCUCKATOO32",
+                                order_id = self.nh_orders["USA"],
+                                speed = self.config["MAX_SPEED"],
+                                price = new_us_price,
+                            )
+                print("USA order status:")
+                if self.config["VERBOSE"]:
+                    pp.pprint(order)
+                else:
+                    print("Speed: {}, Price: {}, BTC_Remaining: {}".format(order["acceptedCurrentSpeed"], order["price"], order["availableAmount"] ))
+            except Exception as e:
+                print("Error updating USA order: {}".format(e))
+            
         
+        # Following an attack ensure no orders are active after minimum run duration
+        if not self.under_attack and self.attack_start is not None:
+            print("Attack start: {}".format(self.attack_start))
+            print("Time remaining: {}".format(self.nh_order_add_duration-(datetime.now() - self.attack_start)))
+            if datetime.now() - self.attack_start > self.nh_order_add_duration:
+                if self.nh_orders["EU"] is not None:
+                    try:
+                        self.nh_api.cancelOrder(self.nh_orders["EU"])
+                        print("Deleted EU order: {}".format(self.nh_orders["EU"]))
+                        self.nh_orders["EU"] = None
+                    except Exception as e:
+                        print("Error canceling EU order: {}".format(e))
+                if self.nh_orders["USA"] is not None:
+                    try:
+                        self.nh_api.cancelOrder(self.nh_orders["USA"])
+                        print("Deleted USA order: {}".format(self.nh_orders["USA"]))
+                        self.nh_orders["USA"] = None
+                    except Exception as e:
+                        print("Error canceling USA order: {}".format(e))
+            if self.nh_orders["EU"] is None and self.nh_orders["USA"] is None:
+                # The attack is over, we are done defending, all is cleaned up
+                self.attack_start = None
+            
 
     def run(self):
-        # Start grin price watcher thread
-        self.grin_price = GrinPriceWatcher()
-        grin_price_thread = Thread(target = self.grin_price.run)
-        grin_price_thread.daemon = True
-        grin_price_thread.start()
-
-        # Start the NiceHash price watcher thread
-        self.nh_price = NiceHashPriceWatcher()
-        nh_price_thread = Thread(target = self.nh_price.run)
-        nh_price_thread.daemon = True
-        nh_price_thread.start()
-
-        # Start the NiceHash speed watcher thread
-        self.nh_speed = NiceHashSpeedWatcher()
-        nh_speed_thread = Thread(target = self.nh_speed.run)
-        nh_speed_thread.daemon = True
-        nh_speed_thread.start()
-
-        # Start the grin network gps watcher thread
-        self.grin_speed = GrinHashSpeedWatcher()
-        grin_speed_thread = Thread(target = self.grin_speed.run)
-        grin_speed_thread.daemon = True
-        grin_speed_thread.start()
-
-        print("self.nicehash_auth = {}".format(self.nicehash_auth))
-        print("self.config = {}".format(self.config))
-
-        while self.grin_price.getSize() < MIN_HISTORY:
-            print("Waiting for history: {} of {}".format(self.grin_price.getSize(), MIN_HISTORY))
-            time.sleep(20)
-
+        # Load Tool Configuration
+        try:
+            print("Loading Configuration....")
+            self.getConfig()
+            if self.config["VERBOSE"]:
+              pp.pprint(self.config)
+            print("Done Loading Configuration")
+        except Exception as e:
+            print("Failed to load configuration: {}".format(e))
+            sys.exit(1)
+        # Run the Tool
+        print("Running {}: {}".format(self.config["NAME"], datetime.now()))
         while True:
-            if VERBOSE:
-                print("Time:")
-                print("  Current: {}".format(datetime.now()))
-                print("Grin Price:")
-                print("  Current: {}".format(self.grin_price.getCurrentPrice()))
-                print("  Avg: {}".format(self.grin_price.getAveragePrice()))
-                print("  Dev: {}".format(self.grin_price.getCurrentPrice()/self.grin_price.getAveragePrice()))
-                print("NiceHash Price:")
-                print("  Current: {}".format(self.nh_price.getCurrentPrice()))
-                print("  Avg: {}".format(self.nh_price.getAveragePrice()))
-                print("  Dev: {}".format(self.nh_price.getCurrentPrice()/self.nh_price.getAveragePrice()))
-                print("NiceHash Speed:")
-                print("  Current: {}".format(self.nh_speed.getCurrentSpeed()))
-                print("  Avg: {}".format(self.nh_speed.getAverageSpeed()))
-                print("  Dev: {}".format(self.nh_speed.getCurrentSpeed()/self.nh_speed.getAverageSpeed()))
-                print("Grin Speed:")
-                print("  Current: {}".format(self.grin_speed.getCurrentSpeed()))
-                print("  Avg: {}".format(self.grin_speed.getAverageSpeed()))
-                print("  Dev: {}".format(self.grin_speed.getCurrentSpeed()/self.grin_speed.getAverageSpeed()))
-                print("Profitability Limit:")
-                print("  Current: {}".format(self.getProfitabilityPrice()))
-                print("  Dev: {}".format(self.nh_price.getCurrentPrice()/self.getProfitabilityPrice()))
-                print("\n")
-            self.checkForAttack()
-            print("\n\n\n")
-            time.sleep(30)
+            print("---> Starting control loop: {}".format(datetime.now()))
+            try:
+                self.checkForAttack()
+                print("Under Attack: {}".format(self.under_attack))
+                self.manageOrders()
+            except Exception as e:
+                print("Unexpected Error: {}".format(e))
+                print("Attemping to continue...")
+            print("<--- Completed control loop\n\n")
+            time.sleep(self.config["LOOP_INTERVAL"])
 
 
 def main():

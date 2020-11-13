@@ -36,21 +36,14 @@ MAX_DECREASE = 0.0001
 ## --
 
 class NiceHash():
-    def __init__(self, API_ID=None, API_KEY=None, market="EU"):
+    def __init__(self, API_ID="", API_KEY=""):
         self.API_ID = API_ID
         self.API_KEY = API_KEY
-        self.market = market
-        self.algo = "GRINCUCKATOO32"
+        self.mfd = {}
 
-    def setAuth(self):
-        if self.API_ID is None or self.API_KEY is None:
-            try:
-                # From environment
-                self.API_ID = os.environ["NICEHASH_API_ID"]
-                self.API_KEY = os.environ["NICEHASH_API_KEY"]
-            except Exception as e:
-                raise Exception("Failed to find NiceHash auth in config or environment")
-
+    def setAuth(self, nhid, nhkey):
+        self.API_ID = nhid
+        self.API_KEY = nhkey
 
     def call_nicehash_api(self, path, method, args=None, body=None):
         url = "https://api2.nicehash.com"
@@ -94,34 +87,43 @@ class NiceHash():
                   body_str
 
         message_bytes = bytearray(message, 'ISO-8859-1')
-
         signature = hmac.new(secret_bytes, msg = message_bytes, digestmod = hashlib.sha256).hexdigest()
-
         headers = {
             'Content-type': 'application/json',
             "X-Time": timestamp,
             "X-Nonce": nonce,
-            "X-Auth": self.API_ID + ":" + signature,
         }
+        if self.API_ID != "" and self.API_KEY != "":
+            headers["X-Auth"] = self.API_ID + ":" + signature
 
         if method == "GET":
             r = requests.get(
                     url=request_query_str,
                     headers=headers,
+                    timeout=20,
                 )
         elif method == "POST":
-    #        print("xxx: {}".format(request_query_str))
-    #        print("yyy: {}".format(body_str))
+            #print("xxx: {}".format(request_query_str))
+            #print("yyy: {}".format(body_str))
             r = requests.post(
                     url=request_query_str,
                     headers=headers,
                     data=body_str,
+                    timeout=20,
+                )
+        elif method == "DELETE":
+            #print("xxx: {}".format(request_query_str))
+            #print("yyy: {}".format(body_str))
+            r = requests.delete(
+                    url=request_query_str,
+                    headers=headers,
+                    timeout=20,
                 )
         else:
             raise Exception("Unsupported method: {}".format(method))
         
         if r.status_code >= 300 or r.status_code < 200:
-            error_msg = "Error calling {}.  Code: {} Reason: {}".format(url, r.status_code, r.reason)
+            error_msg = "Error calling {}.  Code: {} Reason: {} content: {}".format(url, r.status_code, r.reason, r.content)
             raise Exception(error_msg)
 
         r_json = r.json()
@@ -133,11 +135,39 @@ class NiceHash():
         #print("xxx {}".format(r_json))
         return r_json
 
-    def getCurrentPrice(self):
-        # Find the lowest price thats has miners working
+
+    ## 
+
+    # Get Market Factor Data
+    def getMarketFactorData(self, algo):
+        # Its ok to cache this, it does not change
+        if algo in self.mfd:
+            return self.mfd[algo]
+        getAlgorithms_path = "/main/api/v2/mining/algorithms/"
+        getAlgorithms_args = {}
+        try:
+            result = self.call_nicehash_api(
+                    path = getAlgorithms_path,
+                    args = getAlgorithms_args,
+                    method = "GET",
+                )
+            algorithms = result["miningAlgorithms"]
+            for a in algorithms:
+                if a["algorithm"] == algo:
+                    self.mfd[algo] = a
+                    return a
+        except Exception as e:
+            print("failed getMarketFactorData(): {}".format(e))
+            raise
+        return None
+
+    ##
+
+    # Get NiceHash orderbook for algo on market
+    def getOrderBook(self, market, algo):
         getOrderBook_path = "/main/api/v2/hashpower/orderBook/"
         getOrderBook_args = {
-                "algorithm": self.algo,
+                "algorithm": algo,
                 "page": "0",
                 "size": "1000",
             }
@@ -147,36 +177,155 @@ class NiceHash():
                     args = getOrderBook_args,
                     method = "GET",
                 )
-            data = result["stats"][self.market]
-            prices = [o["price"] for o in data["orders"] if int(o["rigsCount"]) > 0 and float(o["acceptedSpeed"]) > 0.00000005 and o["type"] == "STANDARD"]
-            prices = sorted(prices)
-            return float(prices[0])
+            orderbook = result["stats"][market]
         except Exception as e:
-            print("failed: {}".format(e))
+            print("failed getOrderBook(): {}".format(e))
             raise
+        return orderbook
 
-    def getCurrentSpeed(self):
-        # Find the current Total Available Speed
-        getOrderBook_path = "/main/api/v2/hashpower/orderBook/"
-        getOrderBook_args = {
-                "algorithm": self.algo,
+    # Get pool ID by name
+    def getPoolId(self, pool_name):
+        getPoolId_path = "/main/api/v2/pools"
+        getPoolId_args = {
                 "page": "0",
-                "size": "1",
+                "size": "1000",
             }
         try:
             result = self.call_nicehash_api(
-                    path = getOrderBook_path,
-                    args = getOrderBook_args,
+                    path = getPoolId_path,
+                    args = getPoolId_args,
                     method = "GET",
                 )
-            data = result["stats"][self.market]
-            speed = data["totalSpeed"]
-            return float(speed)
+            pools = result["list"]
         except Exception as e:
-            print("failed: {}".format(e))
+            print("failed getPoolId(): {}".format(e))
             raise
+        for pool in pools:
+            if pool["name"] == pool_name:
+                return pool["id"]
+        return None
+
+    def createOrder(self, algo, market, pool_id, price, speed, amount):
+        marketFactor = int(self.getMarketFactorData(algo)["marketFactor"])
+        displayMarketFactor = self.getMarketFactorData(algo)["displayMarketFactor"]
+        # Create an order
+        createOrder_path = "/main/api/v2/hashpower/order"
+        createOrder_body = {
+                "market": market,
+                "algorithm": algo,
+                "amount": amount,
+                "type": "STANDARD",
+                "poolId": pool_id,
+                "limit": "{:.2f}".format(float(speed)),
+                "price": "{:.4f}".format(float(price)),
+                "marketFactor": marketFactor,
+                "displayMarketFactor": displayMarketFactor.encode(),
+            }
+        try:
+            result = self.call_nicehash_api(
+                    path = createOrder_path,
+                    body = createOrder_body,
+                    method = "POST",
+                )
+            order = result
+        except Exception as e:
+            print("failed createOrder(): {}".format(e))
+            raise
+        return order
 
 
+    def getMyOrders(self, market, algo):
+        # Get existing orders
+        getMyOrders_path =  "/main/api/v2/hashpower/myOrders/"
+        getMyOrders_args = {
+                "algorithm": algo,
+                "market": market,
+                "op": "LT",
+                "active": True,
+                "limit": 100,
+            }
+        try:
+            result = self.call_nicehash_api(
+                    path = getMyOrders_path,
+                    args = getMyOrders_args,
+                    method = "GET",
+                )
+            myorders = result["list"]
+        except Exception as e:
+            print("failed getMyOrders(): {}".format(e))
+            raise
+        return myorders
+
+    def getOrder(self, order_id):
+        # Get existing order by id
+        getOrder_path = "/main/api/v2/hashpower/order/{}/".format(order_id)
+        getOrder_args = {}
+        try:
+            result = self.call_nicehash_api(
+                    path = getOrder_path,
+                    args = getOrder_args,
+                    method = "GET",
+                )
+        except Exception as e:
+            print("failed getOrder(): {}".format(e))
+            raise
+        return result
+        
+
+    def cancelOrder(self, order_id):
+        # Cancel an order
+        cancelOrder_path =  "/main/api/v2/hashpower/order/{}".format(order_id)
+        cancelOrder_args = {}
+        try:
+            result = self.call_nicehash_api(
+                    path = cancelOrder_path,
+                    args = cancelOrder_args,
+                    method = "DELETE",
+                )
+        except Exception as e:
+            print("failed cancelOrder(): {}".format(e))
+            raise
+        return result
+
+    def updateOrder(self, algo, order_id, speed, price):
+        marketFactor = self.getMarketFactorData(algo)["marketFactor"]
+        displayMarketFactor = self.getMarketFactorData(algo)["displayMarketFactor"]
+        # Update an orders price and/or speed limit
+        increasePrice_path = "/main/api/v2/hashpower/order/{}/updatePriceAndLimit".format(order_id)
+        increasePrice_body = {
+                 "marketFactor": marketFactor,
+                 "displayMarketFactor": displayMarketFactor,
+                 "limit": "{:.4f}".format(float(speed)),
+                 "price": "{:.2f}".format(float(price)),
+             }
+        try:
+            result = self.call_nicehash_api(
+                    path = increasePrice_path,
+                    body = increasePrice_body,
+                    method = "POST",
+               )
+        except Exception as e:
+            print("failed updateOrder(): {}".format(e))
+            raise
+        return result
+   
+
+    ##
+
+
+    def getCurrentPrice(self, market, algo):
+        # Find the lowest price thats has miners working
+        orderbook = self.getOrderBook(market, algo)
+        prices = [o["price"] for o in orderbook["orders"] if int(o["rigsCount"]) > 0 and float(o["acceptedSpeed"]) > 0.00000005 and o["type"] == "STANDARD"]
+        prices = sorted(prices)
+        return float(prices[0])
+
+    def getCurrentSpeed(self, market, algo):
+        # Find the current Total Available NiceHash Speed
+        # aka How much hash nicehash is producing
+        orderbook = self.getOrderBook(market, algo)
+        speed = orderbook["totalSpeed"]
+        return float(speed)
 
 
 
@@ -185,10 +334,34 @@ def main():
     # Some Tests
     nh_api = NiceHash()
     nh_api.setAuth()
-    p = nh_api.getCurrentPrice() 
-    print("Current Price: {}".format(p))
-    s = nh_api.getCurrentSpeed()
-    print("Current Speed: {}".format(s))
+    p = nh_api.getCurrentPrice("EU", "GRINCUCKATOO32") 
+    print("Current Price EU: {}".format(p))
+    p = nh_api.getCurrentPrice("USA", "GRINCUCKATOO32") 
+    print("Current Price USA: {}\n\n".format(p))
+    s = nh_api.getCurrentSpeed("EU", "GRINCUCKATOO32")
+    print("Current Speed EU: {}".format(s))
+    s = nh_api.getCurrentSpeed("USA", "GRINCUCKATOO32")
+    print("Current Speed USA: {}\n\n".format(s))
+    o = nh_api.getMyOrders("EU", "GRINCUCKATOO32")
+    print("Current Orders EU: {}".format(o))
+    o = nh_api.getMyOrders("USA", "GRINCUCKATOO32")
+    print("Current Orders USA: {}\n\n".format(o))
+    poolid = nh_api.getPoolId("defender")
+    print("Pool id: {}\n\n".format(poolid))
+# The following is commented out because it costs money to test
+#    o = nh_api.createOrder(algo = "GRINCUCKATOO32",
+#                                market = "EU",
+#                                pool_id = poolid,
+#                                price = 0.1122,
+#                                speed = 0.2,
+#                                amount = 0.005,
+#                            )
+#    o = nh_api.getOrder(o["id"])
+#    print("EU order details {}".format(o))
+#    updated_order = nh_api.updateOrder("GRINCUCKATOO32", o, 0.02 , 0.1122)
+#    print("Update Order Result: {}\n\n".format(updated_order))
+#    nh_api.cancelOrder(o)
+    
  
 
 if __name__ == "__main__":

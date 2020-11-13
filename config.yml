@@ -1,0 +1,23 @@
+---
+# Grin NiceHash Defender Configuration
+- NAME: "Grin NiceHash Defender"
+
+# NiceHash Auth Config
+  NICEHASH_API_ID:  ""    # NiceHash API ID (here, or set it as an environment variable)
+  NICEHASH_API_KEY: ""    # NiceHash API Key (here, or set it as an environment variable)
+
+# NiceHash Order Config
+  MAX_SPEED: 0.02         # kG/s - NiceHash order limit speed
+  ORDER_AMOUNT: 0.005     # BTC - Amount to spend (max) on an order
+  MAX_PRICE: 0.270        # BTC/kG/day - Never exceede this Nicehash order price bid
+  POOL_NAME: "defender"   # Must exist in "MY POOLS" NiceHash configuration and point to a C32 pool
+  ADD_ORDER_DURATION: 5   # Minutes - Additional amount of time to mine after an attack has ended
+
+# Advanced Config
+  VERBOSE: False          # Print lots of debugging data - WARNINIG: "True" Prints NiceHash API keys!!
+  ORDER_PRICE_ADD: 0.0005 # BTC - Amount to set order price over the absolute minimum
+  LOOP_INTERVAL: 10       # Sleep this long (seconds) between control loop runs
+  CHECK_TYPE: "grin51"    # Method of detecting an attack:
+                          #  "grin51": run the grin51 detection algorithm locally
+                          #  "service": use the public grin detection service (NOT YET)
+                          #  "file":  for debugging, check for file called "./attack"

@@ -26,6 +26,7 @@ from threading import Thread
 
 from nicehash_api import NiceHash
 
+# TODO - move config to config.yml
 MIN_HISTORY = 30   # (minutes) Minimum amount of data to collect before taking action
 MAX_HISTORY = 1440 # (minutes) Maximum amount of data to use as "recent history"
 
@@ -180,7 +181,7 @@ class Grin51():
         self.under_attack = False
 
     # Attempt at calculating the break-eaven nicehash rental price
-    def getProfitabilityPrice(self):
+    def getBreakevenPrice(self):
         grin_price = self.grin_price.getCurrentPrice()
         grin_speed = self.grin_speed.getCurrentSpeed() / 1000.0 # XXX NH specific - only valid for C32
         grin_per_day = 60*60*24
@@ -189,25 +190,47 @@ class Grin51():
         
     def get_stats(self):
         nh_eu_price = self.nh_eu_price.getCurrentPrice()
-        nh_avg_eu_price = self.nh_eu_price.getAveragePrice()
-        nh_eu_price_dev = nh_eu_price / nh_avg_eu_price
+        nh_eu_price_avg = self.nh_eu_price.getAveragePrice()
+        nh_eu_price_dev = nh_eu_price / nh_eu_price_avg
+        #
+        nh_us_price = self.nh_us_price.getCurrentPrice()
+        nh_us_price_avg = self.nh_us_price.getAveragePrice()
+        nh_us_price_dev = nh_us_price / nh_us_price_avg
+        #
+        nh_price = (nh_eu_price + nh_us_price) / 2
+        nh_price_score = (nh_eu_price_dev + nh_us_price_dev) / 2
         #
         nh_eu_speed = self.nh_eu_speed.getCurrentSpeed()
-        nh_avg_eu_speed = self.nh_eu_speed.getAverageSpeed()
-        nh_eu_speed_dev = nh_eu_speed / nh_avg_eu_speed
+        nh_eu_speed_avg = self.nh_eu_speed.getAverageSpeed()
+        nh_eu_speed_dev = nh_eu_speed / nh_eu_speed_avg
         #
-        grin_profitability_price = self.getProfitabilityPrice()
-        grin_profitability = nh_eu_price / grin_profitability_price
+        nh_us_speed = self.nh_us_speed.getCurrentSpeed()
+        nh_us_speed_avg = self.nh_us_speed.getAverageSpeed()
+        nh_us_speed_dev = nh_us_speed / nh_us_speed_avg
         #
+        nh_speed_score = (nh_eu_speed_dev + nh_us_speed_dev) / 2
+        #
+        nh_mining_breakeven_price = self.getBreakevenPrice()
+        nh_mining_profitability_score = nh_price / nh_mining_breakeven_price
+        #
+       
         stats = {
                 "nh_eu_price": nh_eu_price,
-                "nh_avg_eu_price": nh_avg_eu_price,
+                "nh_eu_price_avg": nh_eu_price_avg,
                 "nh_eu_price_dev": nh_eu_price_dev,
+                "nh_us_price": nh_us_price,
+                "nh_us_price_avg": nh_us_price_avg,
+                "nh_us_price_dev": nh_us_price_dev,
+                "nh_price_score": nh_price_score,
                 "nh_eu_speed": nh_eu_speed,
-                "nh_avg_eu_speed": nh_avg_eu_speed,
+                "nh_eu_speed_avg": nh_eu_speed_avg,
                 "nh_eu_speed_dev": nh_eu_speed_dev,
-                "grin_profitability_price": grin_profitability_price,
-                "grin_profitability": grin_profitability,
+                "nh_us_speed": nh_us_speed,
+                "nh_us_speed_avg": nh_us_speed_avg,
+                "nh_us_speed_dev": nh_us_speed_dev,
+                "nh_speed_score": nh_speed_score,
+                "nh_mining_breakeven_price": nh_mining_breakeven_price,
+                "nh_mining_profitability_score": nh_mining_profitability_score,
             }
         return stats
 
@@ -218,7 +241,7 @@ class Grin51():
         # 3. NiceHash C32 price is at least 30% higher than is profitable
         #    based on current grin price and current grin network c32 graph rate
         stats = self.get_stats()
-        if stats["nh_eu_price_dev"] > 1.3 and stats["nh_eu_speed_dev"] > 1.3 and stats["grin_profitability"] > 1.3:
+        if stats["nh_price_score"] > 1.3 and stats["nh_speed_score"] > 1.3 and stats["nh_mining_profitability_score"] > 1.3:
             self.under_attack = True
         else:
             self.under_attack = False
@@ -230,6 +253,12 @@ class Grin51():
         grin_price_thread.daemon = True
         grin_price_thread.start()
 
+        # Start the grin network gps watcher thread
+        self.grin_speed = GrinHashSpeedWatcher()
+        grin_speed_thread = Thread(target = self.grin_speed.run)
+        grin_speed_thread.daemon = True
+        grin_speed_thread.start()
+
         # Start the EU NiceHash price watcher thread
         self.nh_eu_price = NiceHashPriceWatcher("EU", "GRINCUCKATOO32")
         nh_eu_price_thread = Thread(target = self.nh_eu_price.run)
@@ -237,7 +266,10 @@ class Grin51():
         nh_eu_price_thread.start()
 
         # Start the USA NiceHash price watcher thread
-        # XXX TODO
+        self.nh_us_price = NiceHashPriceWatcher("USA", "GRINCUCKATOO32")
+        nh_us_price_thread = Thread(target = self.nh_us_price.run)
+        nh_us_price_thread.daemon = True
+        nh_us_price_thread.start()
 
         # Start the EU NiceHash speed watcher thread
         self.nh_eu_speed = NiceHashSpeedWatcher("EU", "GRINCUCKATOO32")
@@ -245,17 +277,24 @@ class Grin51():
         nh_eu_speed_thread.daemon = True
         nh_eu_speed_thread.start()
 
-        # Start the grin network gps watcher thread
-        self.grin_speed = GrinHashSpeedWatcher()
-        grin_speed_thread = Thread(target = self.grin_speed.run)
-        grin_speed_thread.daemon = True
-        grin_speed_thread.start()
+        # Start the US NiceHash speed watcher thread
+        self.nh_us_speed = NiceHashSpeedWatcher("USA", "GRINCUCKATOO32")
+        nh_us_speed_thread = Thread(target = self.nh_us_speed.run)
+        nh_us_speed_thread.daemon = True
+        nh_us_speed_thread.start()
 
         sz = 0
         while sz < MIN_HISTORY:
             print("Waiting for more data history: {} of {}".format(sz, MIN_HISTORY))
             time.sleep(30)
-            sz = min( self.grin_price.getSize(), self.nh_eu_price.getSize(), self.nh_eu_speed.getSize(), self.grin_speed.getSize())
+            sz = min(
+                     self.grin_price.getSize(),
+                     self.grin_speed.getSize(),
+                     self.nh_eu_price.getSize(),
+                     self.nh_us_price.getSize(),
+                     self.nh_eu_speed.getSize(),
+                     self.nh_us_speed.getSize()
+                )
 
 
 

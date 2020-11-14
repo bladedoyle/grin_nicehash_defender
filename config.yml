@@ -7,7 +7,7 @@
   NICEHASH_API_KEY: ""    # NiceHash API Key (here, or set it as an environment variable)
 
 # NiceHash Order Config
-  MAX_SPEED: 0.02         # kG/s - NiceHash order limit speed
+  MAX_SPEED: 0.25         # kG/s - NiceHash order limit speed
   ORDER_AMOUNT: 0.005     # BTC - Amount to spend (max) on an order
   MAX_PRICE: 0.270        # BTC/kG/day - Never exceede this Nicehash order price bid
   POOL_NAME: "defender"   # Must exist in "MY POOLS" NiceHash configuration and point to a C32 pool

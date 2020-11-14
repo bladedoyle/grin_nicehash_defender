@@ -1,5 +1,7 @@
 # Grin Nicehash Defender
 
+Current Project Status:  Alpha Release - use at your own risk
+
 What it does:
   * Monitors grin network for 51% attack
   * If an attack is detected NiceHash C32 orders will be created in both EU and USA
@@ -10,7 +12,7 @@ How to use it:
   * Create a NiceHash account
   * Create a NiceHash "Organization" (optional but recommended)
   * Get NiceHash "API keys": Needs "Market place Permissions"
-  * Set environment variables NICEHASH_API_ID and NICEHASH_API_KEY
+  * Set environment variables NICEHASH_API_ID and NICEHASH_API_KEY (or add to config.yml)
   * Clone this git project
   * Edit "config.yml" and update settings
   * Run:  grin_nicehash_defender.py

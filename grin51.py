@@ -26,9 +26,7 @@ from threading import Thread
 
 from nicehash_api import NiceHash
 
-VERBOSE = True
 MIN_HISTORY = 20    # (minutes) Minimum amount of data to collect before taking action
-LOOP_INTERVAL = 10  # Sleep this long (seconds) between control loop runs
 
 ##
 # Watchers for external data

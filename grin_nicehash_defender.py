@@ -39,6 +39,7 @@ class GrinNiceHashDefender():
         self.nh_pool_id = None
         self.nh_orders = { "EU": None, "USA": None }
         self.nh_order_add_duration = None
+        self.attack_stats = {}
 
     def getConfig(self):
         if not os.path.exists('config.yml'):
@@ -83,6 +84,7 @@ class GrinNiceHashDefender():
                 attack = True
         elif self.config["CHECK_TYPE"] == "grin51":
             attack = self.grin51.under_attack
+            self.attack_stats = self.grin51.get_stats()
         elif self.config["CHECK_TYPE"] == "service":
             attack = result_of_calling_a_service_api()
         else:
@@ -228,7 +230,13 @@ class GrinNiceHashDefender():
             try:
                 self.checkForAttack()
                 print("Under Attack: {}".format(self.under_attack))
+                print("Attack Analysis Stats:")
+                pp.pprint(self.attack_stats)
                 self.manageOrders()
+                if self.nh_orders["EU"] is not None:
+                    print("Managing EU NiceHash order: {}".format(self.nh_orders["EU"]))
+                if self.nh_orders["USA"] is not None:
+                    print("Managing US NiceHash order: {}".format(self.nh_orders["USA"]))
             except Exception as e:
                 print("Unexpected Error: {}".format(e))
                 print("Attemping to continue...")

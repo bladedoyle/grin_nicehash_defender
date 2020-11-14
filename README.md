@@ -8,7 +8,8 @@ What it does:
 
 How to use it:
   * Create a NiceHash account
-  * Get a NiceHash API ID and KEY
+  * Create a NiceHash "Organization" (optional but recommended)
+  * Get NiceHash "API keys": Needs "Market place Permissions"
   * Set environment variables NICEHASH_API_ID and NICEHASH_API_KEY
   * Clone this git project
   * Edit "config.yml" and update settings
@@ -20,3 +21,6 @@ and
   * NiceHash C32 "Total Available Speed" is at least 30% higher than recent average
 and
   * NiceHash C32 price is at least 30% higher than is profitable based on current grin price and current grin network c32 graph rate.
+
+Joltz attack detection module:
+  * Coming Soon (tm)

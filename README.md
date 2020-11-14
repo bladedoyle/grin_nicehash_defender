@@ -11,6 +11,7 @@ What it does:
 How to use it:
   * Create a NiceHash account
   * Create a NiceHash "Organization" (optional but recommended)
+  * Create a pool (under "Hashpower Marketplace" -> "MY POOLS" -> "+ ADD NEW POOL) named "defender" for algorithm "GrinCuckatoo32"
   * Get NiceHash "API keys": Needs "Market place Permissions"
   * Set environment variables NICEHASH_API_ID and NICEHASH_API_KEY (or add to config.yml)
   * Clone this git project

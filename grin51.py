@@ -26,15 +26,16 @@ from threading import Thread
 
 from nicehash_api import NiceHash
 
-MIN_HISTORY = 20    # (minutes) Minimum amount of data to collect before taking action
+MIN_HISTORY = 30   # (minutes) Minimum amount of data to collect before taking action
+MAX_HISTORY = 1440 # (minutes) Maximum amount of data to use as "recent history"
 
 ##
 # Watchers for external data
 
 class GrinHashSpeedWatcher():
     def __init__(self):
-        self.interval = 30
-        self.max_size = 9000/self.interval
+        self.interval = 60
+        self.max_size = MAX_HISTORY
         self.speeds = []
 
     def getSize(self):
@@ -67,8 +68,8 @@ class GrinHashSpeedWatcher():
 
 class GrinPriceWatcher():
     def __init__(self):
-        self.interval = 30
-        self.max_size = 9000/self.interval
+        self.interval = 60
+        self.max_size = MAX_HISTORY
         self.prices = []
     
     def getSize(self):
@@ -103,8 +104,8 @@ class NiceHashPriceWatcher():
     def __init__(self, market, algo):
         self.market = market
         self.algo = algo
-        self.interval = 30
-        self.max_size = 9000/self.interval
+        self.interval = 60
+        self.max_size = MAX_HISTORY
         self.prices = []
 
     def getSize(self):
@@ -139,8 +140,8 @@ class NiceHashSpeedWatcher():
     def __init__(self, market, algo):
         self.market = market
         self.algo = algo
-        self.interval = 30
-        self.max_size = 9000/self.interval
+        self.interval = 60
+        self.max_size = MAX_HISTORY
         self.speeds = []
 
     def getSize(self):
@@ -178,9 +179,10 @@ class Grin51():
         self.nh_api = NiceHash()
         self.under_attack = False
 
+    # Attempt at calculating the break-eaven nicehash rental price
     def getProfitabilityPrice(self):
         grin_price = self.grin_price.getCurrentPrice()
-        grin_speed = self.grin_speed.getCurrentSpeed() / 1000.0
+        grin_speed = self.grin_speed.getCurrentSpeed() / 1000.0 # XXX NH specific - only valid for C32
         grin_per_day = 60*60*24
         price = (grin_per_day * grin_price) / grin_speed
         return price

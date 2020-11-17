@@ -12,11 +12,13 @@ How to use it:
   * Create a NiceHash account
   * Create a NiceHash "Organization" (optional but recommended)
   * Create a pool (under "Hashpower Marketplace" -> "MY POOLS" -> "+ ADD NEW POOL) named "defender" for algorithm "GrinCuckatoo32"
+  * Fun your wallet with BTC (at least 0.005 BTC)
   * Get NiceHash "API keys": Needs "Market place Permissions"
   * Set environment variables NICEHASH_API_ID and NICEHASH_API_KEY (or add to config.yml)
   * Clone this git project
+  * Install required python modules: ```pip -r requirements.txt```
   * Edit "config.yml" and update settings
-  * Run:  grin_nicehash_defender.py
+  * Run: ```python grin_nicehash_defender.py```
 
 grin51 attack detection module will detect a possible attack if:
   * NiceHash C32 price is at least 30% higher than recent average
@@ -26,4 +28,4 @@ and
   * NiceHash C32 price is at least 30% higher than is profitable based on current grin price and current grin network c32 graph rate.
 
 Joltz attack detection module:
-  * Coming Soon (tm)
+  * Documented here:  https://github.com/j01tz/grin-health

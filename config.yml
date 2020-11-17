@@ -7,17 +7,34 @@
   NICEHASH_API_KEY: ""    # NiceHash API Key (here, or set it as an environment variable)
 
 # NiceHash Order Config
-  MAX_SPEED: 0.25         # kG/s - NiceHash order limit speed
-  ORDER_AMOUNT: 0.005     # BTC - Amount to spend (max) on an order
-  MAX_PRICE: 0.270        # BTC/kG/day - Never exceede this Nicehash order price bid
   POOL_NAME: "defender"   # Must exist in "MY POOLS" NiceHash configuration and point to a C32 pool
-  ADD_ORDER_DURATION: 5   # Minutes - Additional amount of time to mine after an attack has ended
+  MAX_SPEED: 0.5          # kG/s - NiceHash order limit speed
+  ORDER_AMOUNT: 0.005     # BTC - Amount to spend (max) on an order
+  MAX_PRICE: 0.275        # BTC/kG/day - Never exceed this Nicehash order price bid (capitulation)
+  ADD_ORDER_DURATION: 10  # Minutes - Additional amount of time to mine after an attack has ended
 
 # Advanced Config
   VERBOSE: False          # Print lots of debugging data - WARNINIG: "True" Prints NiceHash API keys!!
   ORDER_PRICE_ADD: 0.0005 # BTC - Amount to set order price over the absolute minimum
-  LOOP_INTERVAL: 10       # Sleep this long (seconds) between control loop runs
+  LOOP_INTERVAL: 60       # Seconds - Sleep this long between control loop runs
   CHECK_TYPE: "grin51"    # Method of detecting an attack:
                           #  "grin51": run the grin51 detection algorithm locally
-                          #  "service": use the public grin detection service (NOT YET)
+                          #  "grin-health": use the public grin-health score service api
                           #  "file":  for debugging, check for file called "./attack"
+
+# --- Attack Detection Module Configuration
+
+# Grin51 Config
+  GRIN51_MIN_HISTORY: 30   # minutes - Minimum amount of data to collect before taking action
+  GRIN51_MAX_HISTORY: 1440 # minutes - Maximum amount of data to use as "recent history"
+  GRIN51_SCORE_THREASHOLD: 1.3 # float -  Consider a score at or above this threashold to be an attack
+                               #  this threashold value represents the mulitplier of a normal (1.0)
+                               #  network state.  1.3 means 30% higher than recent averages
+
+# grin-health Config
+  GRINHEALTH_URL: "https://joltz.keybase.pub/api/grin"  # hosted here temporarily
+  GRINHEALTH_SCORE_THREASHOLD: 2  # integer - Consider an "overall score" at or blow this threashold an attack
+                                  #  see: https://github.com/j01tz/grin-health
+                                  #    "Scoring is rated 0 to 5, with 5 being the healthiest network
+                                  #    and 0 being a network likely currently under attack"
+

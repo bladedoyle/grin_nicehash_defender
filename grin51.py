@@ -176,8 +176,9 @@ class NiceHashSpeedWatcher():
 
 
 class Grin51():
-    def __init__(self):
+    def __init__(self, threashold):
         self.nh_api = NiceHash()
+        self.threashold = threashold
         self.under_attack = False
 
     # Attempt at calculating the break-eaven nicehash rental price
@@ -241,7 +242,7 @@ class Grin51():
         # 3. NiceHash C32 price is at least 30% higher than is profitable
         #    based on current grin price and current grin network c32 graph rate
         stats = self.get_stats()
-        if stats["nh_price_score"] > 1.3 and stats["nh_speed_score"] > 1.3 and stats["nh_mining_profitability_score"] > 1.3:
+        if stats["nh_price_score"] > self.threashold and stats["nh_speed_score"] > self.threashold and stats["nh_mining_profitability_score"] > threashold:
             self.under_attack = True
         else:
             self.under_attack = False
@@ -285,7 +286,7 @@ class Grin51():
 
         sz = 0
         while sz < MIN_HISTORY:
-            print("Waiting for more data history: {} of {}".format(sz, MIN_HISTORY))
+            print("Waiting for more data history. Status: {} of {}".format(sz, MIN_HISTORY))
             time.sleep(30)
             sz = min(
                      self.grin_price.getSize(),
@@ -300,7 +301,7 @@ class Grin51():
 
 def main():
     # A few tests
-    g51 = Grin51()
+    g51 = Grin51(threashold=1.01)
     g51.run()
     print("Running")
     print("Under Attack: {}".format(g51.under_attack))

@@ -73,7 +73,7 @@ class GrinNiceHashDefender():
         if self.config["CHECK_TYPE"] == "grin51":
             print("Loading Grin51 detection module")
             from grin51 import Grin51
-            self.grin51 = Grin51()
+            self.grin51 = Grin51(self.config["GRIN51_SCORE_THREASHOLD"])
             self.grin51.run()
             print("Grin51 detection module is running")
 
@@ -85,8 +85,15 @@ class GrinNiceHashDefender():
         elif self.config["CHECK_TYPE"] == "grin51":
             attack = self.grin51.under_attack
             self.attack_stats = self.grin51.get_stats()
-        elif self.config["CHECK_TYPE"] == "service":
-            attack = result_of_calling_a_service_api()
+        elif self.config["CHECK_TYPE"] == "grin-health":
+            status_url = self.config["GRINHEALTH_URL"]
+            try:
+                r = requests.get(status_url)
+                self.attack_stats = r.json()
+                attack = self.attack_stats["overall_score"] <= int(self.config["GRINHEALTH_SCORE_THREASHOLD"])
+            except Exception as e:
+                print("Error: Failed to call grin-heal status api: {}".format(e))
+                attack = False
         else:
             print("Unknown attack detection method: {}".format(self.config["CHECK_TYPE"]))
             sys.exit(1)
@@ -231,7 +238,7 @@ class GrinNiceHashDefender():
                 self.checkForAttack()
                 print("Under Attack: {}".format(self.under_attack))
                 print("Attack Analysis Stats:")
-                pp.pprint(self.attack_stats)
+                pp.pprint(json.loads(json.dumps(self.attack_stats)))
                 self.manageOrders()
                 if self.nh_orders["EU"] is not None:
                     print("Managing EU NiceHash order: {}".format(self.nh_orders["EU"]))

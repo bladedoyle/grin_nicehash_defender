@@ -26,17 +26,13 @@ from threading import Thread
 
 from nicehash_api import NiceHash
 
-# TODO - move config to config.yml
-MIN_HISTORY = 30   # (minutes) Minimum amount of data to collect before taking action
-MAX_HISTORY = 1440 # (minutes) Maximum amount of data to use as "recent history"
-
 ##
 # Watchers for external data
 
 class GrinHashSpeedWatcher():
-    def __init__(self):
+    def __init__(self, max_history=1440):
         self.interval = 60
-        self.max_size = MAX_HISTORY
+        self.max_size = max_history
         self.speeds = []
 
     def getSize(self):
@@ -68,9 +64,9 @@ class GrinHashSpeedWatcher():
             time.sleep(self.interval)
 
 class GrinPriceWatcher():
-    def __init__(self):
+    def __init__(self, max_history=1440):
         self.interval = 60
-        self.max_size = MAX_HISTORY
+        self.max_size = max_history
         self.prices = []
     
     def getSize(self):
@@ -102,11 +98,11 @@ class GrinPriceWatcher():
             time.sleep(self.interval)
 
 class NiceHashPriceWatcher():
-    def __init__(self, market, algo):
+    def __init__(self, market, algo, max_history=1440):
         self.market = market
         self.algo = algo
         self.interval = 60
-        self.max_size = MAX_HISTORY
+        self.max_size = max_history
         self.prices = []
 
     def getSize(self):
@@ -138,11 +134,11 @@ class NiceHashPriceWatcher():
             time.sleep(self.interval)
 
 class NiceHashSpeedWatcher():
-    def __init__(self, market, algo):
+    def __init__(self, market, algo, max_history=1440):
         self.market = market
         self.algo = algo
         self.interval = 60
-        self.max_size = MAX_HISTORY
+        self.max_size = max_history
         self.speeds = []
 
     def getSize(self):
@@ -176,9 +172,11 @@ class NiceHashSpeedWatcher():
 
 
 class Grin51():
-    def __init__(self, threashold):
+    def __init__(self, threashold, min_history=30, max_history=1440):
         self.nh_api = NiceHash()
         self.threashold = threashold
+        self.min_history = min_history
+        self.max_history = max_history
         self.under_attack = False
 
     # Attempt at calculating the break-eaven nicehash rental price
@@ -222,40 +220,42 @@ class Grin51():
                 "nh_us_price": nh_us_price,
                 "nh_us_price_avg": nh_us_price_avg,
                 "nh_us_price_dev": nh_us_price_dev,
-                "nh_price_score": nh_price_score,
                 "nh_eu_speed": nh_eu_speed,
                 "nh_eu_speed_avg": nh_eu_speed_avg,
                 "nh_eu_speed_dev": nh_eu_speed_dev,
                 "nh_us_speed": nh_us_speed,
                 "nh_us_speed_avg": nh_us_speed_avg,
                 "nh_us_speed_dev": nh_us_speed_dev,
-                "nh_speed_score": nh_speed_score,
                 "nh_mining_breakeven_price": nh_mining_breakeven_price,
-                "nh_mining_profitability_score": nh_mining_profitability_score,
+                "score": {
+                        "nh_price_score": nh_price_score,
+                        "nh_speed_score": nh_speed_score,
+                        "nh_mining_profitability_score": nh_mining_profitability_score,
+                    }
             }
         return stats
 
     def checkForAttack(self):
         # Possible to attack if:
-        # 1. NiceHash C32 price is at least 30% higher than recent average
-        # 2. NiceHash C32 "Total Available Speed" is at least 30% higher than recent average
-        # 3. NiceHash C32 price is at least 30% higher than is profitable
+        # 1. NiceHash C32 price is at least XX% higher than recent average
+        # 2. NiceHash C32 "Total Available Speed" is at least XX% higher than recent average
+        # 3. NiceHash C32 price is at least XX% higher than is profitable
         #    based on current grin price and current grin network c32 graph rate
         stats = self.get_stats()
-        if stats["nh_price_score"] > self.threashold and stats["nh_speed_score"] > self.threashold and stats["nh_mining_profitability_score"] > threashold:
+        if stats["score"]["nh_price_score"] > self.threashold and stats["score"]["nh_speed_score"] > self.threashold and stats["score"]["nh_mining_profitability_score"] > threashold:
             self.under_attack = True
         else:
             self.under_attack = False
 
     def run(self):
         # Start grin price watcher thread
-        self.grin_price = GrinPriceWatcher()
+        self.grin_price = GrinPriceWatcher(max_history=1440)
         grin_price_thread = Thread(target = self.grin_price.run)
         grin_price_thread.daemon = True
         grin_price_thread.start()
 
         # Start the grin network gps watcher thread
-        self.grin_speed = GrinHashSpeedWatcher()
+        self.grin_speed = GrinHashSpeedWatcher(max_history=1440)
         grin_speed_thread = Thread(target = self.grin_speed.run)
         grin_speed_thread.daemon = True
         grin_speed_thread.start()
@@ -267,26 +267,26 @@ class Grin51():
         nh_eu_price_thread.start()
 
         # Start the USA NiceHash price watcher thread
-        self.nh_us_price = NiceHashPriceWatcher("USA", "GRINCUCKATOO32")
+        self.nh_us_price = NiceHashPriceWatcher("USA", "GRINCUCKATOO32", max_history=1440)
         nh_us_price_thread = Thread(target = self.nh_us_price.run)
         nh_us_price_thread.daemon = True
         nh_us_price_thread.start()
 
         # Start the EU NiceHash speed watcher thread
-        self.nh_eu_speed = NiceHashSpeedWatcher("EU", "GRINCUCKATOO32")
+        self.nh_eu_speed = NiceHashSpeedWatcher("EU", "GRINCUCKATOO32", max_history=1440)
         nh_eu_speed_thread = Thread(target = self.nh_eu_speed.run)
         nh_eu_speed_thread.daemon = True
         nh_eu_speed_thread.start()
 
         # Start the US NiceHash speed watcher thread
-        self.nh_us_speed = NiceHashSpeedWatcher("USA", "GRINCUCKATOO32")
+        self.nh_us_speed = NiceHashSpeedWatcher("USA", "GRINCUCKATOO32", max_history=1440)
         nh_us_speed_thread = Thread(target = self.nh_us_speed.run)
         nh_us_speed_thread.daemon = True
         nh_us_speed_thread.start()
 
         sz = 0
-        while sz < MIN_HISTORY:
-            print("Waiting for more data history. Status: {} of {}".format(sz, MIN_HISTORY))
+        while sz < self.min_history:
+            print("Waiting for more data history. Status: {} of {}".format(sz, self.min_history))
             time.sleep(30)
             sz = min(
                      self.grin_price.getSize(),

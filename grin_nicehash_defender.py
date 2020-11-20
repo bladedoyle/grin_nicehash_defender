@@ -73,7 +73,7 @@ class GrinNiceHashDefender():
         if self.config["CHECK_TYPE"] == "grin51":
             print("Loading Grin51 detection module")
             from grin51 import Grin51
-            self.grin51 = Grin51(self.config["GRIN51_SCORE_THREASHOLD"])
+            self.grin51 = Grin51(self.config["GRIN51_SCORE_THREASHOLD"], self.config["GRIN51_MIN_HISTORY"], self.config["GRIN51_MAX_HISTORY"])
             self.grin51.run()
             print("Grin51 detection module is running")
 

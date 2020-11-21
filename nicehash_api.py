@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
   
 # Copyright 2020 Blade M. Doyle
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,10 +36,16 @@ MAX_DECREASE = 0.0001
 ## --
 
 class NiceHash():
-    def __init__(self, API_ID="", API_KEY=""):
+    def __init__(self, API_ID="", API_KEY="", logger=None):
         self.API_ID = API_ID
         self.API_KEY = API_KEY
         self.mfd = {}
+        if logger is not None:
+            self.logger = logger
+        else:
+            import logging
+            self.logger = logging.getLogger("gnd")
+
 
     def setAuth(self, nhid, nhkey):
         self.API_ID = nhid
@@ -157,7 +163,7 @@ class NiceHash():
                     self.mfd[algo] = a
                     return a
         except Exception as e:
-            print("failed getMarketFactorData(): {}".format(e))
+            self.logger.error("failed getMarketFactorData(): {}".format(e))
             raise
         return None
 
@@ -179,7 +185,7 @@ class NiceHash():
                 )
             orderbook = result["stats"][market]
         except Exception as e:
-            print("failed getOrderBook(): {}".format(e))
+            self.logger.error("failed getOrderBook(): {}".format(e))
             raise
         return orderbook
 
@@ -198,7 +204,7 @@ class NiceHash():
                 )
             pools = result["list"]
         except Exception as e:
-            print("failed getPoolId(): {}".format(e))
+            self.logger.error("failed getPoolId(): {}".format(e))
             raise
         for pool in pools:
             if pool["name"] == pool_name:
@@ -229,7 +235,7 @@ class NiceHash():
                 )
             order = result
         except Exception as e:
-            print("failed createOrder(): {}".format(e))
+            self.logger.error("failed createOrder(): {}".format(e))
             raise
         return order
 
@@ -252,7 +258,7 @@ class NiceHash():
                 )
             myorders = result["list"]
         except Exception as e:
-            print("failed getMyOrders(): {}".format(e))
+            self.logger.error("failed getMyOrders(): {}".format(e))
             raise
         return myorders
 
@@ -267,7 +273,7 @@ class NiceHash():
                     method = "GET",
                 )
         except Exception as e:
-            print("failed getOrder(): {}".format(e))
+            self.logger.error("failed getOrder(): {}".format(e))
             raise
         return result
         
@@ -283,7 +289,7 @@ class NiceHash():
                     method = "DELETE",
                 )
         except Exception as e:
-            print("failed cancelOrder(): {}".format(e))
+            self.logger.error("failed cancelOrder(): {}".format(e))
             raise
         return result
 
@@ -305,7 +311,7 @@ class NiceHash():
                     method = "POST",
                )
         except Exception as e:
-            print("failed updateOrder(): {}".format(e))
+            self.logger.error("failed updateOrder(): {}".format(e))
             raise
         return result
    
@@ -333,7 +339,7 @@ class NiceHash():
 def main():
     # Some Tests
     nh_api = NiceHash()
-    nh_api.setAuth()
+    nh_api.setAuth("x", "y")
     p = nh_api.getCurrentPrice("EU", "GRINCUCKATOO32") 
     print("Current Price EU: {}".format(p))
     p = nh_api.getCurrentPrice("USA", "GRINCUCKATOO32") 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
   
 # Copyright 2020 Blade M. Doyle
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,14 +20,14 @@ import uuid
 import time
 import json
 import yaml
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
 import requests
 import traceback
 from datetime import datetime, timedelta
 from threading import Thread
 
 from nicehash_api import NiceHash
+import gnd_logging
+logger = gnd_logging.get_logger()
 
 
 class GrinNiceHashDefender():
@@ -50,7 +50,7 @@ class GrinNiceHashDefender():
             try:
                 self.config = yaml.safe_load(cfg)[0]
             except Exception as e:
-                print("Failed to load configuration.  Check syntax.\n{}".format(e))
+                logger.error("Failed to load configuration.  Check syntax.\n{}".format(e))
                 sys.exit(1)
         self.nh_order_add_duration = timedelta(minutes=int(self.config["ADD_ORDER_DURATION"]))
         try:
@@ -60,22 +60,22 @@ class GrinNiceHashDefender():
                 self.config["NICEHASH_API_KEY"] = os.environ["NICEHASH_API_KEY"]
             self.nh_api.setAuth(self.config["NICEHASH_API_ID"], self.config["NICEHASH_API_KEY"])
         except Exception as e:
-            print("Failed to find NICEHASH_API_ID and NICEHASH_API_KEY: {}".format(e))
+            logger.error("Failed to find NICEHASH_API_ID and NICEHASH_API_KEY: {}".format(e))
             sys.exit(1)
         try:
             self.nh_pool_id = self.nh_api.getPoolId(self.config["POOL_NAME"])
         except Exception as e:
-            print("Failed to connect to your nicehash account: {}".format(e))
+            logger.error("Failed to connect to your nicehash account: {}".format(e))
             sys.exit(1)
         if self.nh_pool_id is None:
-            print("Failed to find pool {} in your NiceHash account".format(self.config["POOL_NAME"]))
+            logger.error("Failed to find pool {} in your NiceHash account".format(self.config["POOL_NAME"]))
             sys.exit(1)
         if self.config["CHECK_TYPE"] == "grin51":
-            print("Loading Grin51 detection module")
+            logger.warning("Loading Grin51 detection module")
             from grin51 import Grin51
             self.grin51 = Grin51(self.config["GRIN51_SCORE_THREASHOLD"], self.config["GRIN51_MIN_HISTORY"], self.config["GRIN51_MAX_HISTORY"])
             self.grin51.run()
-            print("Grin51 detection module is running")
+            logger.warning("Grin51 detection module is running")
 
     def checkForAttack(self):
         attack = False
@@ -92,10 +92,10 @@ class GrinNiceHashDefender():
                 self.attack_stats = r.json()
                 attack = self.attack_stats["overall_score"] <= int(self.config["GRINHEALTH_SCORE_THREASHOLD"])
             except Exception as e:
-                print("Error: Failed to call grin-heal status api: {}".format(e))
+                logger.warning("Error: Failed to call grin-heal status api: {}".format(e))
                 attack = False
         else:
-            print("Unknown attack detection method: {}".format(self.config["CHECK_TYPE"]))
+            logger.error("Unknown attack detection method: {}".format(self.config["CHECK_TYPE"]))
             sys.exit(1)
         # Set some values for attack state
         if attack:
@@ -111,7 +111,7 @@ class GrinNiceHashDefender():
                 eu_price = self.nh_api.getCurrentPrice("EU", "GRINCUCKATOO32") + self.config["ORDER_PRICE_ADD"]
                 us_price = self.nh_api.getCurrentPrice("USA", "GRINCUCKATOO32") + self.config["ORDER_PRICE_ADD"]
             except Exception as e:
-                print("Error getting NH price data: {}".format(e))
+                logger.error("Error getting NH price data: {}".format(e))
                 return
         if self.under_attack:
             # Create orders if needed
@@ -127,12 +127,12 @@ class GrinNiceHashDefender():
                                     amount = self.config["ORDER_AMOUNT"],
                                 )
                     self.nh_orders["EU"] = new_order["id"] 
-                    print("Created EU Order: {}".format(self.nh_orders["EU"]))
+                    logger.warning("Created EU Order: {}".format(self.nh_orders["EU"]))
 # XXX DEBUGGING XXX
 #                    self.nh_orders["EU"] = "0e69ab28-b9c0-40eb-bda7-3a0a975440c7"
 # XXX DEBUGGING XXX
                 except Exception as e:
-                    print("Error creating EU order: {}".format(e))
+                    logger.error("Error creating EU order: {}".format(e))
             if self.nh_orders["USA"] is None:
                 try:
                     new_order = self.nh_api.createOrder(
@@ -144,12 +144,12 @@ class GrinNiceHashDefender():
                                     amount = self.config["ORDER_AMOUNT"],
                                 )
                     self.nh_orders["USA"] = new_order["id"] 
-                    print("Created USA Order: {}".format(self.nh_orders["USA"]))
+                    logger.warning("Created USA Order: {}".format(self.nh_orders["USA"]))
 # XXX DEBUGGING XXX
 #                    self.nh_orders["USA"] = "8ef742e2-6a8c-4c19-b46c-d96b2050a43f"
 # XXX DEBUGGING XXX
                 except Exception as e:
-                    print("Error creating USA order: {}".format(e))
+                    logger.error("Error creating USA order: {}".format(e))
 
 
 
@@ -160,60 +160,60 @@ class GrinNiceHashDefender():
             try:
                 order = self.nh_api.getOrder(self.nh_orders["EU"])
                 new_eu_price = max(float(order["price"]), float(eu_price))
-                print("order price: {}, eu_price: {}, new_eu_price: {}".format(order["price"], eu_price, new_eu_price))
+                logger.info("order price: {}, eu_price: {}, new_eu_price: {}".format(order["price"], eu_price, new_eu_price))
                 order = self.nh_api.updateOrder(
                                 algo = "GRINCUCKATOO32",
                                 order_id = self.nh_orders["EU"],
                                 speed = self.config["MAX_SPEED"],
                                 price = new_eu_price,
                             )
-                print("EU order status:")
+                logger.warning("EU order status:")
                 if self.config["VERBOSE"]:
-                    pp.pprint(order)
+                    logger.warning(order)
                 else:
-                    print("Speed: {}, Price: {}, BTC_Remaining: {}".format(order["acceptedCurrentSpeed"], order["price"], order["availableAmount"]))
+                    logger.error("Speed: {}, Price: {}, BTC_Remaining: {}".format(order["acceptedCurrentSpeed"], order["price"], order["availableAmount"]))
             except Exception as e:
-                print("Error updating EU order: {}".format(e))
+                logger.error("Error updating EU order: {}".format(e))
         if self.nh_orders["USA"] is not None:
             # Update the order
             try:
                 order = self.nh_api.getOrder(self.nh_orders["USA"])
                 new_us_price = max(float(order["price"]), float(us_price))
-                print("order price: {}, us_price: {}, new_us_price: {}".format(order["price"], us_price, new_us_price))
+                logger.info("order price: {}, us_price: {}, new_us_price: {}".format(order["price"], us_price, new_us_price))
                 order = self.nh_api.updateOrder(
                                 algo = "GRINCUCKATOO32",
                                 order_id = self.nh_orders["USA"],
                                 speed = self.config["MAX_SPEED"],
                                 price = new_us_price,
                             )
-                print("USA order status:")
+                logger.warning("USA order status:")
                 if self.config["VERBOSE"]:
-                    pp.pprint(order)
+                    logger.warning(order)
                 else:
-                    print("Speed: {}, Price: {}, BTC_Remaining: {}".format(order["acceptedCurrentSpeed"], order["price"], order["availableAmount"] ))
+                    logger.error("Speed: {}, Price: {}, BTC_Remaining: {}".format(order["acceptedCurrentSpeed"], order["price"], order["availableAmount"] ))
             except Exception as e:
-                print("Error updating USA order: {}".format(e))
+                logger.error("Error updating USA order: {}".format(e))
             
         
         # Following an attack ensure no orders are active after minimum run duration
         if not self.under_attack and self.attack_start is not None:
-            print("Attack start: {}".format(self.attack_start))
-            print("Time remaining: {}".format(self.nh_order_add_duration-(datetime.now() - self.attack_start)))
+            logger.error("Attack start: {}".format(self.attack_start))
+            logger.error("Time remaining: {}".format(self.nh_order_add_duration-(datetime.now() - self.attack_start)))
             if datetime.now() - self.attack_start > self.nh_order_add_duration:
                 if self.nh_orders["EU"] is not None:
                     try:
                         self.nh_api.cancelOrder(self.nh_orders["EU"])
-                        print("Deleted EU order: {}".format(self.nh_orders["EU"]))
+                        logger.error("Deleted EU order: {}".format(self.nh_orders["EU"]))
                         self.nh_orders["EU"] = None
                     except Exception as e:
-                        print("Error canceling EU order: {}".format(e))
+                        logger.error("Error canceling EU order: {}".format(e))
                 if self.nh_orders["USA"] is not None:
                     try:
                         self.nh_api.cancelOrder(self.nh_orders["USA"])
-                        print("Deleted USA order: {}".format(self.nh_orders["USA"]))
+                        logger.error("Deleted USA order: {}".format(self.nh_orders["USA"]))
                         self.nh_orders["USA"] = None
                     except Exception as e:
-                        print("Error canceling USA order: {}".format(e))
+                        logger.error("Error canceling USA order: {}".format(e))
             if self.nh_orders["EU"] is None and self.nh_orders["USA"] is None:
                 # The attack is over, we are done defending, all is cleaned up
                 self.attack_start = None
@@ -222,32 +222,32 @@ class GrinNiceHashDefender():
     def run(self):
         # Load Tool Configuration
         try:
-            print("Loading Configuration....")
+            logger.warning("Loading Configuration....")
             self.getConfig()
             if self.config["VERBOSE"]:
-              pp.pprint(self.config)
-            print("Done Loading Configuration")
+              logger.warning(self.config)
+            logger.warning("Done Loading Configuration")
         except Exception as e:
-            print("Failed to load configuration: {}".format(e))
+            logger.error("Failed to load configuration: {}".format(e))
             sys.exit(1)
         # Run the Tool
-        print("Running {}: {}".format(self.config["NAME"], datetime.now()))
+        logger.warning("Running {}: {}".format(self.config["NAME"], datetime.now()))
         while True:
-            print("---> Starting control loop: {}".format(datetime.now()))
+            logger.warning("---> Starting control loop: {}".format(datetime.now()))
             try:
                 self.checkForAttack()
-                print("Under Attack: {}".format(self.under_attack))
-                print("Attack Analysis Stats:")
-                pp.pprint(json.loads(json.dumps(self.attack_stats)))
+                logger.warning("Under Attack: {}".format(self.under_attack))
+                logger.warning("Attack Analysis Stats:")
+                logger.warning(json.loads(json.dumps(self.attack_stats)))
                 self.manageOrders()
                 if self.nh_orders["EU"] is not None:
-                    print("Managing EU NiceHash order: {}".format(self.nh_orders["EU"]))
+                    logger.warning("Managing EU NiceHash order: {}".format(self.nh_orders["EU"]))
                 if self.nh_orders["USA"] is not None:
-                    print("Managing US NiceHash order: {}".format(self.nh_orders["USA"]))
+                    logger.warning("Managing US NiceHash order: {}".format(self.nh_orders["USA"]))
             except Exception as e:
-                print("Unexpected Error: {}".format(e))
-                print("Attemping to continue...")
-            print("<--- Completed control loop\n\n")
+                logger.error("Unexpected Error: {}".format(e))
+                logger.warning("Attemping to continue...")
+            logger.warning("<--- Completed control loop\n\n")
             time.sleep(self.config["LOOP_INTERVAL"])
 
 

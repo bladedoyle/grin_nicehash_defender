@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
   
 # Copyright 2020 Blade M. Doyle
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,10 +30,11 @@ from nicehash_api import NiceHash
 # Watchers for external data
 
 class GrinHashSpeedWatcher():
-    def __init__(self, max_history=1440):
+    def __init__(self, logger, max_history=1440):
         self.interval = 60
         self.max_size = max_history
         self.speeds = []
+        self.logger = logger
 
     def getSize(self):
         return len(self.speeds)
@@ -59,15 +60,16 @@ class GrinHashSpeedWatcher():
                 if len(self.speeds) > self.max_size:
                     self.speeds.pop(0)
             except Exception as e:
-                print("Error in Grin51::GrinHashSpeedWatcher - {}".format(e))
+                self.logger.error("Error in Grin51::GrinHashSpeedWatcher - {}".format(e))
             # sleep interval
             time.sleep(self.interval)
 
 class GrinPriceWatcher():
-    def __init__(self, max_history=1440):
+    def __init__(self, logger, max_history=1440):
         self.interval = 60
         self.max_size = max_history
         self.prices = []
+        self.logger = logger
     
     def getSize(self):
         return len(self.prices)
@@ -93,17 +95,18 @@ class GrinPriceWatcher():
                 if len(self.prices) > self.max_size:
                     self.prices.pop(0)
             except Exception as e:
-                print("Error in Grin51::GrinPriceWatcher - {}".format(e))
+                self.logger.error("Error in Grin51::GrinPriceWatcher - {}".format(e))
             # sleep interval
             time.sleep(self.interval)
 
 class NiceHashPriceWatcher():
-    def __init__(self, market, algo, max_history=1440):
+    def __init__(self, logger, market, algo, max_history=1440):
         self.market = market
         self.algo = algo
         self.interval = 60
         self.max_size = max_history
         self.prices = []
+        self.logger = logger
 
     def getSize(self):
         return len(self.prices)
@@ -129,17 +132,18 @@ class NiceHashPriceWatcher():
                 if len(self.prices) > self.max_size:
                     self.prices.pop(0)
             except Exception as e:
-                print("Error in Grin51::NiceHashPriceWatcher - {}".format(e))
+                self.logger.error("Error in Grin51::NiceHashPriceWatcher - {}".format(e))
             # sleep interval
             time.sleep(self.interval)
 
 class NiceHashSpeedWatcher():
-    def __init__(self, market, algo, max_history=1440):
+    def __init__(self, logger, market, algo, max_history=1440):
         self.market = market
         self.algo = algo
         self.interval = 60
         self.max_size = max_history
         self.speeds = []
+        self.logger = logger
 
     def getSize(self):
         return len(self.speeds)
@@ -165,14 +169,19 @@ class NiceHashSpeedWatcher():
                 if len(self.speeds) > self.max_size:
                     self.speeds.pop(0)
             except Exception as e:
-                print("Error in Grin51::NiceHashSpeedWatcher - {}".format(e))
+                self.logger.error("Error in Grin51::NiceHashSpeedWatcher - {}".format(e))
             # sleep interval
             time.sleep(self.interval)
 
 
 
 class Grin51():
-    def __init__(self, threashold, min_history=30, max_history=1440):
+    def __init__(self, threashold, min_history=30, max_history=1440, logger=None):
+        if logger is not None:
+            self.logger = logger
+        else:
+            import logging
+            self.logger = logging.getLogger("gnd")
         self.nh_api = NiceHash()
         self.threashold = threashold
         self.min_history = min_history
@@ -249,45 +258,45 @@ class Grin51():
 
     def run(self):
         # Start grin price watcher thread
-        self.grin_price = GrinPriceWatcher(max_history=1440)
+        self.grin_price = GrinPriceWatcher(self.logger, max_history=1440)
         grin_price_thread = Thread(target = self.grin_price.run)
         grin_price_thread.daemon = True
         grin_price_thread.start()
 
         # Start the grin network gps watcher thread
-        self.grin_speed = GrinHashSpeedWatcher(max_history=1440)
+        self.grin_speed = GrinHashSpeedWatcher(self.logger, max_history=1440)
         grin_speed_thread = Thread(target = self.grin_speed.run)
         grin_speed_thread.daemon = True
         grin_speed_thread.start()
 
         # Start the EU NiceHash price watcher thread
-        self.nh_eu_price = NiceHashPriceWatcher("EU", "GRINCUCKATOO32")
+        self.nh_eu_price = NiceHashPriceWatcher(self.logger, "EU", "GRINCUCKATOO32")
         nh_eu_price_thread = Thread(target = self.nh_eu_price.run)
         nh_eu_price_thread.daemon = True
         nh_eu_price_thread.start()
 
         # Start the USA NiceHash price watcher thread
-        self.nh_us_price = NiceHashPriceWatcher("USA", "GRINCUCKATOO32", max_history=1440)
+        self.nh_us_price = NiceHashPriceWatcher(self.logger, "USA", "GRINCUCKATOO32", max_history=1440)
         nh_us_price_thread = Thread(target = self.nh_us_price.run)
         nh_us_price_thread.daemon = True
         nh_us_price_thread.start()
 
         # Start the EU NiceHash speed watcher thread
-        self.nh_eu_speed = NiceHashSpeedWatcher("EU", "GRINCUCKATOO32", max_history=1440)
+        self.nh_eu_speed = NiceHashSpeedWatcher(self.logger, "EU", "GRINCUCKATOO32", max_history=1440)
         nh_eu_speed_thread = Thread(target = self.nh_eu_speed.run)
         nh_eu_speed_thread.daemon = True
         nh_eu_speed_thread.start()
 
         # Start the US NiceHash speed watcher thread
-        self.nh_us_speed = NiceHashSpeedWatcher("USA", "GRINCUCKATOO32", max_history=1440)
+        self.nh_us_speed = NiceHashSpeedWatcher(self.logger, "USA", "GRINCUCKATOO32", max_history=1440)
         nh_us_speed_thread = Thread(target = self.nh_us_speed.run)
         nh_us_speed_thread.daemon = True
         nh_us_speed_thread.start()
 
         sz = 0
         while sz < self.min_history:
-            print("Waiting for more data history. Status: {} of {}".format(sz, self.min_history))
-            time.sleep(30)
+            self.logger.warning("Waiting for more data history. Status: {} of {}".format(sz, self.min_history))
+            time.sleep(60)
             sz = min(
                      self.grin_price.getSize(),
                      self.grin_speed.getSize(),

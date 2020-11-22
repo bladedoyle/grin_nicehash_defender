@@ -80,8 +80,11 @@ class GrinNiceHashDefender():
     def checkForAttack(self):
         attack = False
         if self.config["CHECK_TYPE"] == "file":
+            file_stats = {"exists": False}
             if os.path.exists('attack'):
                 attack = True
+                file_stats["exists"] = True
+            self.attack_stats["file"] = file_stats
         elif self.config["CHECK_TYPE"] == "grin51":
             attack = self.grin51.under_attack
             self.attack_stats = self.grin51.get_stats()
@@ -108,8 +111,9 @@ class GrinNiceHashDefender():
     def manageOrders(self):
         if self.attack_start is not None:
             try:
-                eu_price = self.nh_api.getCurrentPrice("EU", "GRINCUCKATOO32") + self.config["ORDER_PRICE_ADD"]
-                us_price = self.nh_api.getCurrentPrice("USA", "GRINCUCKATOO32") + self.config["ORDER_PRICE_ADD"]
+                eu_price = min(self.nh_api.getCurrentPrice("EU", "GRINCUCKATOO32") + self.config["ORDER_PRICE_ADD"], self.config["MAX_PRICE"])
+                us_price = min(self.nh_api.getCurrentPrice("USA", "GRINCUCKATOO32") + self.config["ORDER_PRICE_ADD"], self.config["MAX_PRICE"])
+                logger.warn("nh eu_price: {}, nh us_price: {}".format(eu_price, us_price))
             except Exception as e:
                 logger.error("Error getting NH price data: {}".format(e))
                 return
@@ -146,7 +150,7 @@ class GrinNiceHashDefender():
                     self.nh_orders["USA"] = new_order["id"] 
                     logger.warning("Created USA Order: {}".format(self.nh_orders["USA"]))
 # XXX DEBUGGING XXX
-#                    self.nh_orders["USA"] = "8ef742e2-6a8c-4c19-b46c-d96b2050a43f"
+#                    self.nh_orders["USA"] = "a1bd4612-1279-4fd6-be79-137384b54c7f"
 # XXX DEBUGGING XXX
                 except Exception as e:
                     logger.error("Error creating USA order: {}".format(e))

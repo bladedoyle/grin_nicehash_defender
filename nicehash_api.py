@@ -227,6 +227,7 @@ class NiceHash():
                 "marketFactor": marketFactor,
                 "displayMarketFactor": displayMarketFactor.encode(),
             }
+        self.logger.warn("createOrder_body: {}".format(createOrder_body))
         try:
             result = self.call_nicehash_api(
                     path = createOrder_path,
@@ -234,6 +235,7 @@ class NiceHash():
                     method = "POST",
                 )
             order = result
+            self.logger.warn("order: {}".format(order))
         except Exception as e:
             self.logger.error("failed createOrder(): {}".format(e))
             raise
@@ -304,12 +306,14 @@ class NiceHash():
                  "limit": "{:.2f}".format(float(speed)),
                  "price": "{:.4f}".format(float(price)),
              }
+        self.logger.warn("increasePrice_body: {}".format(increasePrice_body))
         try:
             result = self.call_nicehash_api(
                     path = increasePrice_path,
                     body = increasePrice_body,
                     method = "POST",
                )
+            self.logger.warn("updated order: {}".format(result))
         except Exception as e:
             self.logger.error("failed updateOrder(): {}".format(e))
             raise

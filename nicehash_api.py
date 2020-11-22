@@ -301,8 +301,8 @@ class NiceHash():
         increasePrice_body = {
                  "marketFactor": marketFactor,
                  "displayMarketFactor": displayMarketFactor,
-                 "limit": "{:.4f}".format(float(speed)),
-                 "price": "{:.2f}".format(float(price)),
+                 "limit": "{:.2f}".format(float(speed)),
+                 "price": "{:.4f}".format(float(price)),
              }
         try:
             result = self.call_nicehash_api(

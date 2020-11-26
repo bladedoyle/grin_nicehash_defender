@@ -34,7 +34,7 @@
 
 # grin-health Config
   GRINHEALTH_URL: "https://joltz.keybase.pub/api/grin"  # hosted here temporarily
-  GRINHEALTH_SCORE_THREASHOLD: 2  # integer - Consider an "overall score" at or blow this threashold an attack
+  GRINHEALTH_SCORE_THREASHOLD: 0  # integer - Consider an "overall score" at or blow this threashold an attack
                                   #  see: https://github.com/j01tz/grin-health
                                   #    "Scoring is rated 0 to 5, with 5 being the healthiest network
                                   #    and 0 being a network likely currently under attack"

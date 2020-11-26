@@ -70,7 +70,7 @@ class GrinNiceHashDefender():
         if self.nh_pool_id is None:
             logger.error("Failed to find pool {} in your NiceHash account".format(self.config["POOL_NAME"]))
             sys.exit(1)
-        if self.config["CHECK_TYPE"] == "grin51":
+        if self.config["CHECK_TYPE"] in ["grin51", "all"]:
             logger.warning("Loading Grin51 detection module")
             from grin51 import Grin51
             self.grin51 = Grin51(self.config["GRIN51_SCORE_THREASHOLD"], self.config["GRIN51_MIN_HISTORY"], self.config["GRIN51_MAX_HISTORY"])
@@ -79,27 +79,25 @@ class GrinNiceHashDefender():
 
     def checkForAttack(self):
         attack = False
-        if self.config["CHECK_TYPE"] == "file":
+        if self.config["CHECK_TYPE"] in ["file", "all"]:
             file_stats = {"exists": False}
             if os.path.exists('attack'):
                 attack = True
                 file_stats["exists"] = True
             self.attack_stats["file"] = file_stats
-        elif self.config["CHECK_TYPE"] == "grin51":
-            attack = self.grin51.under_attack
-            self.attack_stats = self.grin51.get_stats()
-        elif self.config["CHECK_TYPE"] == "grin-health":
+        if self.config["CHECK_TYPE"] in ["grin51", "all"]:
+            if self.grin51.under_attack:
+                attack = True
+            self.attack_stats["grin51"] = self.grin51.get_stats()
+        if self.config["CHECK_TYPE"] in ["grin-health", "all"]:
             status_url = self.config["GRINHEALTH_URL"]
             try:
                 r = requests.get(status_url)
-                self.attack_stats = r.json()
-                attack = self.attack_stats["overall_score"] <= int(self.config["GRINHEALTH_SCORE_THREASHOLD"])
+                self.attack_stats["grin-health"] = r.json()
+                if int(self.attack_stats["grin-health"]["overall_score"]) <= int(self.config["GRINHEALTH_SCORE_THREASHOLD"]):
+                    attack = True
             except Exception as e:
-                logger.warning("Error: Failed to call grin-heal status api: {}".format(e))
-                attack = False
-        else:
-            logger.error("Unknown attack detection method: {}".format(self.config["CHECK_TYPE"]))
-            sys.exit(1)
+                logger.warning("Error: Failed to call grin-health status api: {}".format(e))
         # Set some values for attack state
         if attack:
             self.under_attack = True

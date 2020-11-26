@@ -17,10 +17,11 @@
   VERBOSE: False          # Print lots of debugging data - WARNINIG: "True" Prints NiceHash API keys!!
   ORDER_PRICE_ADD: 0.0005 # BTC - Amount to set order price over the absolute minimum
   LOOP_INTERVAL: 60       # Seconds - Sleep this long between control loop runs
-  CHECK_TYPE: "grin51"    # Method of detecting an attack:
+  CHECK_TYPE: "all"    # Method of detecting an attack:
                           #  "grin51": run the grin51 detection algorithm locally
                           #  "grin-health": use the public grin-health score service api
                           #  "file":  for debugging, check for file called "./attack"
+                          #  "all": Use all available methods and alert on any of them
 
 # --- Attack Detection Module Configuration
 

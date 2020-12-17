@@ -9,15 +9,15 @@
 # NiceHash Order Config
   POOL_NAME: "defender"   # Must exist in "MY POOLS" NiceHash configuration and point to a C32 pool
   MAX_SPEED: 0.5          # kG/s - NiceHash order limit speed
-  ORDER_AMOUNT: 0.005     # BTC - Amount to spend (max) on an order
-  MAX_PRICE: 0.275        # BTC/kG/day - Never exceed this Nicehash order price bid (capitulation)
+  ORDER_AMOUNT: 0.002     # BTC - Amount to spend (max) on an order
+  MAX_PRICE: 0.375        # BTC/kG/day - Never exceed this Nicehash order price bid (capitulation)
   ADD_ORDER_DURATION: 10  # Minutes - Additional amount of time to mine after an attack has ended
 
 # Advanced Config
   VERBOSE: False          # Print lots of debugging data - WARNINIG: "True" Prints NiceHash API keys!!
   ORDER_PRICE_ADD: 0.0005 # BTC - Amount to set order price over the absolute minimum
   LOOP_INTERVAL: 60       # Seconds - Sleep this long between control loop runs
-  CHECK_TYPE: "all"    # Method of detecting an attack:
+  CHECK_TYPE: "all"       # Method of detecting an attack:
                           #  "grin51": run the grin51 detection algorithm locally
                           #  "grin-health": use the public grin-health score service api
                           #  "file":  for debugging, check for file called "./attack"

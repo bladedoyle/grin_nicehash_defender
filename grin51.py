@@ -310,7 +310,7 @@ class Grin51():
 
 def main():
     # A few tests
-    g51 = Grin51(threashold=1.01)
+    g51 = Grin51(threashold=1.01, min_history=1)
     g51.run()
     print("Running")
     print("Under Attack: {}".format(g51.under_attack))

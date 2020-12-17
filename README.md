@@ -1,11 +1,13 @@
 # Grin Nicehash Defender
 
-Current Project Status:  Beta Release
+Current Project Status:
+ * Release 1.0
+ * Community-Funded instance is running at <a href="https://grindefender.online/">grindefender.online</a>
 
 Grin Nicehash Defender is a bot that Grin community members can use to help defend the Grin network. If abnormal activity is taking place the bot will rent C32 hashpower from Nicehash to increase Grin network security for the duration of the attack.  
 
 What it does:
-  * Monitors grin network for 51% attack (choose between Grin51 and grin-health detection algorithms)
+  * Monitors grin network for 51% attack (Supports detection algorithms: Grin51 and grin-health)
   * If an attack is detected a NiceHash C32 order will be created on both EU and USA markets
   * While the attack is active, the order limit prices will be increased to keep miners working
   * After the attack ends, the two orders will be deleted
@@ -18,7 +20,7 @@ How to use it:
   * Get NiceHash "API keys": Needs "Market place Permissions"
   * Set environment variables NICEHASH_API_ID and NICEHASH_API_KEY (or add to config.yml)
   * Clone this git project
-  * Install required python modules: ```pip -r requirements.txt```
+  * Install required python modules: ```pip install -r requirements.txt```
   * Edit "config.yml" and update settings
   * Run: ```python grin_nicehash_defender.py```
 

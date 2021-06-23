@@ -17,7 +17,9 @@ How to use it:
   * Create a NiceHash "Organization" (optional but recommended)
   * Create a pool (under "Hashpower Marketplace" -> "MY POOLS" -> "+ ADD NEW POOL") named "defender" for algorithm "GrinCuckatoo32"
   * Fund your wallet with BTC (at least 0.005 BTC)
-  * Get NiceHash "API keys": Needs "Market place Permissions"
+  * Get NiceHash "API keys": Needs Permissions:
+    Wallet:  "View balances"
+    Market place Permissions: "View hashpower orders", "manage hashpower orders - place", "manage hashpower orders - edit price"
   * Set environment variables NICEHASH_API_ID and NICEHASH_API_KEY (or add to config.yml)
   * Clone this git project
   * Install required python modules: ```pip install -r requirements.txt```

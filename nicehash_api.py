@@ -36,9 +36,10 @@ MAX_DECREASE = 0.0001
 ## --
 
 class NiceHash():
-    def __init__(self, API_ID="", API_KEY="", logger=None):
+    def __init__(self, API_ID="", API_KEY="", ORG_ID="", logger=None):
         self.API_ID = API_ID
         self.API_KEY = API_KEY
+        self.ORG_ID = ORG_ID
         self.mfd = {}
         if logger is not None:
             self.logger = logger
@@ -47,9 +48,10 @@ class NiceHash():
             self.logger = logging.getLogger("gnd")
 
 
-    def setAuth(self, nhid, nhkey):
+    def setAuth(self, nhid, nhkey, nhorg):
         self.API_ID = nhid
         self.API_KEY = nhkey
+        self.ORG_ID = nhorg
 
     def call_nicehash_api(self, path, method, args=None, body=None):
         url = "https://api2.nicehash.com"
@@ -80,6 +82,7 @@ class NiceHash():
                   nonce + \
                   zero_byte_field + \
                   zero_byte_field + \
+                  self.ORG_ID + \
                   zero_byte_field + \
                   zero_byte_field + \
                   method + \
@@ -98,6 +101,7 @@ class NiceHash():
             'Content-type': 'application/json',
             "X-Time": timestamp,
             "X-Nonce": nonce,
+            "X-Organization-ID": self.ORG_ID,
         }
         if self.API_ID != "" and self.API_KEY != "":
             headers["X-Auth"] = self.API_ID + ":" + signature
@@ -343,7 +347,7 @@ class NiceHash():
 def main():
     # Some Tests
     nh_api = NiceHash()
-    nh_api.setAuth("x", "y")
+    nh_api.setAuth(os.getenv("NICEHASH_API_ID"), os.getenv("NICEHASH_API_KEY"), os.getenv("NICEHASH_ORG_ID"))
     p = nh_api.getCurrentPrice("EU", "GRINCUCKATOO32") 
     print("Current Price EU: {}".format(p))
     p = nh_api.getCurrentPrice("USA", "GRINCUCKATOO32") 

@@ -58,9 +58,11 @@ class GrinNiceHashDefender():
                 self.config["NICEHASH_API_ID"] = os.environ["NICEHASH_API_ID"]
             if self.config["NICEHASH_API_KEY"] == "":
                 self.config["NICEHASH_API_KEY"] = os.environ["NICEHASH_API_KEY"]
-            self.nh_api.setAuth(self.config["NICEHASH_API_ID"], self.config["NICEHASH_API_KEY"])
+            if self.config["NICEHASH_ORG_ID"] == "":
+                self.config["NICEHASH_ORG_ID"] = os.environ["NICEHASH_ORG_ID"]
+            self.nh_api.setAuth(self.config["NICEHASH_API_ID"], self.config["NICEHASH_API_KEY"], self.config["NICEHASH_ORG_ID"])
         except Exception as e:
-            logger.error("Failed to find NICEHASH_API_ID and NICEHASH_API_KEY: {}".format(e))
+            logger.error("Failed to find NICEHASH_API_ID and/or NICEHASH_API_KEY and/or NICEHASH_ORG_ID: {}".format(e))
             sys.exit(1)
         try:
             self.nh_pool_id = self.nh_api.getPoolId(self.config["POOL_NAME"])

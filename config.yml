@@ -5,6 +5,7 @@
 # NiceHash Auth Config
   NICEHASH_API_ID:  ""    # NiceHash API ID (here, or set it as an environment variable)
   NICEHASH_API_KEY: ""    # NiceHash API Key (here, or set it as an environment variable)
+  NICEHASH_ORG_ID: ""     # NiceHash ORG ID (here, or set it as an environment variable)
 
 # NiceHash Order Config
   POOL_NAME: "defender"   # Must exist in "MY POOLS" NiceHash configuration and point to a C32 pool
